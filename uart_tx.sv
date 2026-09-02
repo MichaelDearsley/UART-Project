@@ -21,7 +21,8 @@ module uart_tx #( //Define UART_TX hardware block
 
     logic [$clog2(CLKS_PER_BIT)-1:0] baud_count; //4 bits is enough to represent 0-9 binary, and $clog2() means ceiling of log base 2
     logic [9:0] shift_reg; //10 bit storage for UART bits
-    logic busy; 
+    logic busy;
+    logic [3:0] bit_count; //Need to count 10 positions which is 4 bits
 
     always_ff @(posedge clk) begin //On rising edge, is reset = 1? If yes reset values, If no normal operation
 
@@ -39,6 +40,7 @@ module uart_tx #( //Define UART_TX hardware block
                     shift_reg <= {1'b1, tx_data, 1'b0}; //Load shift register storing 1st bit (Start bit), 8 data bits, last bit (stop bit)
                     busy <=1; 
                     baud_count <= 0; //Reset timing counter
+                    bit_count <= 0;
                     tx <= 0;
                 end
             end
@@ -47,9 +49,18 @@ module uart_tx #( //Define UART_TX hardware block
                 if (baud_count == CLKS_PER_BIT - 1) begin  //If the clock cycles match the UART bit
                     baud_count <= 0;
 
-                    shift_reg <= {1'b1, shift_reg[9:1]}; //Shift the register to the right e.g. 1010000010 goes to 1101000001
-                    tx <= shift_reg[1]; //Next bit goes onto TX wire
+                    if (bit_count == 4'd9) begin
+                        busy <= 0;
+                        tx <= 1;
+                        bit_count <=0;
+                    end
+                    else begin
+                        shift_reg <= {1'b1, shift_reg[9:1]}; //Shift the register to the right e.g. 1010000010 goes to 1101000001
+                        tx <= shift_reg[1]; //Next bit goes onto TX wire
+                        bit_count <= bit_count + 1'b1; //Counts bits
+                    end
                 end
+
                 else begin
                     baud_count <= baud_count +1'b1;
                 end
