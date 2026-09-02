@@ -12,23 +12,49 @@ module uart_tx #( //Define UART_TX hardware block
 ) ( 
     input logic clk,
     input logic reset,
+    input logic [7:0] tx_data, //UART data bits
+    input logic tx_valid,
     output logic tx
 );
 
     localparam int CLKS_PER_BIT = CLK_FREQ / BAUD_RATE; //localparam is used as the value is calculated from parameters
 
     logic [$clog2(CLKS_PER_BIT)-1:0] baud_count; //4 bits is enough to represent 0-9 binary, and $clog2() means ceiling of log base 2
+    logic [9:0] shift_reg; //10 bit storage for UART bits
+    logic busy; 
 
-    always_ff @(posedge clk) begin //On rising edge, is reset = 1? If yes baud_count = 0, If no reached 9? If yes = 0 If no count + 1
+    always_ff @(posedge clk) begin //On rising edge, is reset = 1? If yes reset values, If no normal operation
 
-        if (reset)
+        if (reset) begin
             baud_count <= 0;
+            shift_reg <= 0; //Clear the UART frame
+            busy <= 0; //Not busy, not transmitting
+            tx <= 1; //UARTS idle is HIGH 
+        end
 
-        else if (baud_count == CLKS_PER_BIT - 1)
-            baud_count <= 0;
+        else begin
 
-        else 
-            baud_count <= baud_count + 1'b1;
+            if (!busy) begin //Start transmitting
+                if (tx_valid) begin //Is there a byte ready
+                    shift_reg <= {1'b1, tx_data, 1'b0}; //Load shift register storing 1st bit (Start bit), 8 data bits, last bit (stop bit)
+                    busy <=1; 
+                    baud_count <= 0; //Reset timing counter
+                    tx <= 0;
+                end
+            end
+            if (busy) begin //If transmitting
+
+                if (baud_count == CLKS_PER_BIT - 1) begin  //If the clock cycles match the UART bit
+                    baud_count <= 0;
+
+                    shift_reg <= {1'b1, shift_reg[9:1]}; //Shift the register to the right e.g. 1010000010 goes to 1101000001
+                    tx <= shift_reg[1]; //Next bit goes onto TX wire
+                end
+                else begin
+                    baud_count <= baud_count +1'b1;
+                end
+            end
+        end
     end
 
 endmodule
