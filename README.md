@@ -46,9 +46,9 @@ gtkwave uart_loopback.vcd
 
 ## Potential future extensions include:
 
-FIFO buffering
-More accurate/fractional baud-rate generation
-More comprehensive randomized verification
-Assertions
-Additional UART configuration options
-CDC-focused improvements
+- FIFO buffering
+- More accurate/fractional baud-rate generation
+- More comprehensive randomized verification
+- Assertions
+- Additional UART configuration options
+- CDC-focused improvements
