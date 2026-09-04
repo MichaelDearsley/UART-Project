@@ -1,23 +1,17 @@
 `timescale 1ns/1ps
 
-module uart_loopback_tb;
+module uart_loopback_tb; //Define testbench
 
     logic clk;
     logic reset;
+    logic [7:0] tx_data; //8 bit byte that the testbench gives to the transmitter
+    logic tx_valid; 
+    logic tx; //Serial output coming from UART TX (one bit at a time)
+    logic tx_ready; //Tells the testbench whether the transmitter is available
+    logic [7:0] rx_data; //9 bit byte that comes out of the reciever
+    logic rx_valid; 
 
-    logic [7:0] tx_data;
-    logic tx_valid;
-    logic tx;
-    logic tx_ready;
-
-    logic [7:0] rx_data;
-    logic rx_valid;
-
-    
-
-    
-
-    uart_tx tx_inst (
+    uart_tx tx_inst ( //Creates instance of uart_tx hardware
         .clk(clk),
         .reset(reset),
         .tx_data(tx_data),
@@ -26,22 +20,22 @@ module uart_loopback_tb;
         .tx(tx)
     );
 
-    uart_rx rx_inst (
+    uart_rx rx_inst ( //Creates instance of uart_rx hardware
         .clk(clk),
         .reset(reset),
-        .rx(tx),
+        .rx(tx), //Loopback connection, TX output to RX input
         .rx_data(rx_data),
         .rx_valid(rx_valid)
     );
 
-    always #5 clk = ~clk;
+    always #5 clk = ~clk; //Generate clock
 
-    task send_byte(input logic [7:0] data);
+    task send_byte(input logic [7:0] data); //Task is reusable code, checks if tx_data and rx_data align
 
-        wait(tx_ready);
+        wait(tx_ready); //Wait until tx_ready is 1
 
-        @(negedge clk);
-        tx_data = data;
+        @(negedge clk); //At falling clock edge as UART operates on rising edge
+        tx_data = data; 
         tx_valid = 1;
 
         @(negedge clk);
@@ -49,8 +43,8 @@ module uart_loopback_tb;
 
         @(posedge rx_valid);
 
-        if (rx_data == data)
-            $display("PASS: Sent 0x%h, Received 0x%h", data, rx_data);
+        if (rx_data == data) //Check if RX and TX match
+            $display("PASS: Sent 0x%h, Received 0x%h", data, rx_data); //Prints that it passed
         else
             $display("FAIL: Sent 0x%h, Received 0x%h", data, rx_data);
 
@@ -58,25 +52,24 @@ module uart_loopback_tb;
 
     initial begin
 
-        $dumpfile("uart_loopback.vcd");
-        $dumpvars(0, uart_loopback_tb);
+        $dumpfile("uart_loopback.vcd"); //Creates waveform file
+        $dumpvars(0, uart_loopback_tb); //Records signals
 
         clk = 0;
         reset = 1;
         tx_data = 0; 
         tx_valid = 0;
+
+        #20; //Wait 20ns
         
-
-        #20;
-
         reset = 0;
 
         #10;
 
-        send_byte(8'h41);
-        send_byte(8'h55);
-        send_byte(8'hA5);
-        send_byte(8'hFF);
+        send_byte(8'h41); //Test byte 1
+        send_byte(8'h55); //Test byte 2
+        send_byte(8'hA5); //Test byte 3
+        send_byte(8'hFF); //Test byte 4
 
         $finish;
 
